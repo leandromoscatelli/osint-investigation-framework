@@ -11,6 +11,7 @@ from app.domain.exceptions.domain_exceptions import DomainValidationError
 class Evidence:
     """
     Entidade que representa uma evidência coletada durante uma investigação OSINT.
+    Evidências são registros factuais e não devem ser alteradas após criação.
     """
 
     def __init__(
@@ -35,9 +36,9 @@ class Evidence:
         self.coletado_por: str = coletado_por.strip()
         self.data_coleta: datetime = data_coleta or datetime.utcnow()
 
-        self.hash_integridade: str = self._gerar_hash()
-
         self._validar()
+
+        self.hash_integridade: str = self._gerar_hash()
 
     # =========================
     # REGRAS INTERNAS
@@ -56,17 +57,32 @@ class Evidence:
             raise DomainValidationError("Fonte da evidência é obrigatória.")
 
         if not isinstance(self.dado, dict) or not self.dado:
-            raise DomainValidationError("Dado da evidência deve ser um dicionário não vazio.")
+            raise DomainValidationError(
+                "Dado da evidência deve ser um dicionário não vazio."
+            )
 
         if not self.coletado_por:
-            raise DomainValidationError("Responsável pela coleta é obrigatório.")
+            raise DomainValidationError(
+                "Responsável pela coleta é obrigatório."
+            )
 
     def _gerar_hash(self) -> str:
         """
-        Gera hash de integridade baseado no conteúdo da evidência.
+        Gera hash de integridade baseado no conteúdo completo da evidência.
         """
+
+        payload = {
+            "investigation_id": str(self.investigation_id),
+            "person_id": str(self.person_id) if self.person_id else None,
+            "tipo": self.tipo.value,
+            "fonte": self.fonte,
+            "dado": self.dado,
+            "coletado_por": self.coletado_por,
+            "data_coleta": self.data_coleta.isoformat(),
+        }
+
         conteudo_serializado = json.dumps(
-            self.dado, sort_keys=True, ensure_ascii=False
+            payload, sort_keys=True, ensure_ascii=False
         ).encode("utf-8")
 
         return hashlib.sha256(conteudo_serializado).hexdigest()

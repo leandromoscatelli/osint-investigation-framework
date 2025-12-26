@@ -1,54 +1,53 @@
-from datetime import datetime
 from uuid import UUID, uuid4
-from typing import List
+from datetime import datetime
+from typing import Optional, List
 
 from app.domain.entities.identifier import Identifier
 from app.domain.exceptions.domain_exceptions import DomainValidationError
 
 
 class Person:
-    """
-    Entidade que representa uma pessoa investigada dentro de uma investigação OSINT.
-    """
-
     def __init__(
         self,
         investigation_id: UUID,
-        nome: str,
-        person_id: UUID | None = None,
-        identificadores: List[Identifier] | None = None,
-        data_criacao: datetime | None = None,
+        display_name: Optional[str] = None,
     ):
-        self.id: UUID = person_id or uuid4()
+        self.id: UUID = uuid4()
         self.investigation_id: UUID = investigation_id
-        self.nome: str = nome.strip()
+        self.display_name: Optional[str] = display_name
+        self.identifiers: List[Identifier] = []
+        self.created_at: datetime = datetime.utcnow()
+        self.updated_at: datetime = self.created_at
 
-        self.identificadores: List[Identifier] = identificadores or []
-        self.data_criacao: datetime = data_criacao or datetime.utcnow()
-
-        self._validar()
+        self._validate()
 
     # =========================
-    # REGRAS DE NEGÓCIO
+    # Regras de Domínio
     # =========================
 
-    def _validar(self) -> None:
+    def _validate(self) -> None:
         if not self.investigation_id:
             raise DomainValidationError(
-                "Pessoa deve estar vinculada a uma investigação válida."
+                "Person deve estar vinculada a uma investigação."
             )
 
-        if not self.nome:
-            raise DomainValidationError("Nome da pessoa é obrigatório.")
+    # =========================
+    # Comportamentos
+    # =========================
 
-    def adicionar_identificador(self, identificador: Identifier) -> None:
-        if not isinstance(identificador, Identifier):
-            raise DomainValidationError("Identificador inválido.")
+    def add_identifier(self, identifier: Identifier) -> None:
+        if identifier in self.identifiers:
+            raise DomainValidationError("Identificador já associado a esta pessoa.")
 
-        if self.possui_identificador(identificador):
-            return  # evita duplicação
+        self.identifiers.append(identifier)
+        self._touch()
 
-        self.identificadores.append(identificador)
+    def update_display_name(self, display_name: str) -> None:
+        if not display_name or not display_name.strip():
+            raise DomainValidationError("Display name inválido.")
 
-    def possui_identificador(self, identificador: Identifier) -> bool:
-        return identificador in self.identificadores
+        self.display_name = display_name.strip()
+        self._touch()
+
+    def _touch(self) -> None:
+        self.updated_at = datetime.utcnow()
