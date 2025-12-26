@@ -1,14 +1,14 @@
 from datetime import datetime
-from enum import Enum
-
 from app.domain.value_objects.identifier_type import IdentifierType
 from app.domain.exceptions.domain_exceptions import DomainValidationError
 
 
 class Identifier:
     """
-    Value Object que representa um identificador de uma pessoa
+    Value Object que representa um identificador observável de uma pessoa
     (email, telefone, username, etc.).
+
+    Não representa identidade confirmada, apenas um dado coletado.
     """
 
     def __init__(
@@ -24,27 +24,46 @@ class Identifier:
         self._validar()
 
     # =========================
-    # REGRAS INTERNAS
+    # NORMALIZAÇÃO
     # =========================
 
     def _normalizar(self, valor: str) -> str:
         if not isinstance(valor, str):
-            raise DomainValidationError("Valor do identificador deve ser texto.")
+            raise DomainValidationError(
+                "Valor do identificador deve ser texto."
+            )
 
-        return valor.strip()
+        valor = valor.strip()
+
+        if self.tipo in (
+            IdentifierType.EMAIL,
+            IdentifierType.USERNAME,
+        ):
+            valor = valor.lower()
+
+        if self.tipo == IdentifierType.TELEFONE:
+            valor = "".join(char for char in valor if char.isdigit())
+
+        return valor
+
+    # =========================
+    # VALIDAÇÃO
+    # =========================
 
     def _validar(self) -> None:
         if not isinstance(self.tipo, IdentifierType):
             raise DomainValidationError("Tipo de identificador inválido.")
 
         if not self.valor:
-            raise DomainValidationError("Valor do identificador não pode ser vazio.")
+            raise DomainValidationError(
+                "Valor do identificador não pode ser vazio."
+            )
 
-        # Validações simples por tipo (mínimo necessário)
+        # Validações mínimas por tipo
         if self.tipo == IdentifierType.EMAIL and "@" not in self.valor:
             raise DomainValidationError("Email inválido.")
 
-        if self.tipo == IdentifierType.TELEFONE and not any(char.isdigit() for char in self.valor):
+        if self.tipo == IdentifierType.TELEFONE and len(self.valor) < 8:
             raise DomainValidationError("Telefone inválido.")
 
     # =========================
